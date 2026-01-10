@@ -1,3 +1,8 @@
+"""
+DualSense 控制器主接口
+
+提供连接、读取输入、设置灯光/音频/扳机效果等完整功能。
+"""
 import logging
 import os
 import sys
@@ -37,10 +42,10 @@ class pydualsense:  # noqa: N801
 
     def __init__(self, verbose: bool = False) -> None:
         """
-        initialise the library but dont connect to the controller. call :func:`init() <pydualsense.pydualsense.init>` to connect to the controller
+        初始化库但不连接到控制器。调用 :func:`init() <pydualsense.pydualsense.init>` 来连接到控制器
 
-        Args:
-            verbose (bool, optional): display verbose out (debug prints of input and output). Defaults to False.
+        参数:
+            verbose (bool, optional): 显示详细输出 (输入和输出的调试打印)。默认为 False。
         """
 
         self.verbose = verbose
@@ -57,7 +62,7 @@ class pydualsense:  # noqa: N801
 
     def register_available_events(self) -> None:
         """
-        register all available events that can be used for the controller
+        注册控制器可用的所有事件
         """
 
         # button events
@@ -117,7 +122,7 @@ class pydualsense:  # noqa: N801
 
     def init(self) -> None:
         """
-        initialize module and device states. Starts the sendReport background thread at the end
+        初始化模块和设备状态。在结束时启动 sendReport 后台线程
         """
         self.device, self.is_edge = self.__find_device() # type: Tuple[hidapi.Device, bool]
         self.light = DSLight()  # control led light of ds
@@ -142,16 +147,16 @@ class pydualsense:  # noqa: N801
 
     def determineConnectionType(self) -> ConnectionType:
         """
-        Determine the connection type of the controller. eg USB or BT.
+        确定控制器的连接类型。例如 USB 或 BT。
 
-        We ask the controller for an input report with a length up to 100 bytes
-        and afterwords check the lenght of the received input report.
-        The connection type determines the length of the report.
+        我们向控制器请求一个长度最多 100 字节的输入报告，
+        然后检查接收到的输入报告的长度。
+        连接类型决定了报告的长度。
 
-        This way of determining is not pretty but it works..
+        这种确定方式不是很优雅，但它有效。。
 
-        Returns:
-            ConnectionType: Detected connection type of the controller.
+        返回:
+            ConnectionType: 检测到的控制器连接类型。
         """
 
         dummy_report = self.device.read(100)
@@ -170,7 +175,7 @@ class pydualsense:  # noqa: N801
 
     def close(self) -> None:
         """
-        Stops the report thread and closes the HID device
+        停止报告线程并关闭 HID 设备
         """
         # TODO: reset trigger effect to default
 
@@ -180,15 +185,15 @@ class pydualsense:  # noqa: N801
 
     def __find_device(self) -> Tuple[hidapi.Device, bool]:
         """
-        find HID dualsense device and open it
+        查找 HID dualsense 设备并打开它
 
-        Raises:
-            Exception: HIDGuardian detected
-            Exception: No device detected
+        引发:
+            Exception: 检测到 HIDGuardian
+            Exception: 未检测到设备
 
-        Returns:
-            hid.Device: returns opened controller device
-            bool: returns true if the device is a DualSense Edge.
+        返回:
+            hid.Device: 返回打开的控制器设备
+            bool: 如果设备是 DualSense Edge，则返回 true。
         """
         # TODO: detect connection mode, bluetooth has a bigger write buffer
         # TODO: implement multiple controllers working
@@ -215,14 +220,14 @@ class pydualsense:  # noqa: N801
 
     def setLeftMotor(self, intensity: int) -> None:
         """
-        set left motor rumble
+        设置左侧电机振动
 
-        Args:
-            intensity (int): rumble intensity
+        参数:
+            intensity (int): 振动强度
 
-        Raises:
-            TypeError: intensity false type
-            Exception: intensity out of bounds 0..255
+        引发:
+            TypeError: intensity 类型错误
+            Exception: intensity 超出范围 0..255
         """
         if not isinstance(intensity, int):
             raise TypeError("left motor intensity needs to be an int")
@@ -233,14 +238,14 @@ class pydualsense:  # noqa: N801
 
     def setRightMotor(self, intensity: int) -> None:
         """
-        set right motor rumble
+        设置右侧电机振动
 
-        Args:
-            intensity (int): rumble intensity
+        参数:
+            intensity (int): 振动强度
 
-        Raises:
-            TypeError: intensity false type
-            Exception: intensity out of bounds 0..255
+        引发:
+            TypeError: intensity 类型错误
+            Exception: intensity 超出范围 0..255
         """
         if not isinstance(intensity, int):
             raise TypeError("right motor intensity needs to be an int")
@@ -250,7 +255,7 @@ class pydualsense:  # noqa: N801
         self.rightMotor = intensity
 
     def sendReport(self) -> None:
-        """background thread handling the reading of the device and updating its states"""
+        """后台线程处理设备的读取并更新其状态"""
         while self.ds_thread:
             try:
                 # read data from the input report of the controller
@@ -265,7 +270,7 @@ class pydualsense:  # noqa: N801
 
                 # write the report to the device
                 self.writeReport(outReport)
-            except IOError:
+            except OSError:
                 self.connected = False
                 break
                 
@@ -275,10 +280,10 @@ class pydualsense:  # noqa: N801
 
     def readInput(self, inReport : List[int]) -> None:
         """
-        read the input from the controller and assign the states
+        从控制器读取输入并分配状态
 
-        Args:
-            inReport (bytearray): read bytearray containing the state of the whole controller
+        参数:
+            inReport (bytearray): 读取包含整个控制器状态的字节数组
         """
 
         # the reports for BT and USB are structured the same,
@@ -492,62 +497,62 @@ class pydualsense:  # noqa: N801
 
         # TODO: control mouse with touchpad for fun as DS4Windows
 
-    def writeReport(self, outReport : List[int]) -> None:  # noqa: N803
+    def writeReport(self, outReport : List[int]) -> None:
         """
-        write the report to the device
+        将报告写入设备
 
-        Args:
-            outReport (list): report to be written to device
+        参数:
+            outReport (list): 要写入设备的报告
         """
         self.device.write(bytes(outReport))
 
     def prepareReport(self) -> List[int]:
         """
-        prepare the output to be send to the controller
+        准备要发送到控制器的输出
 
-        Returns:
-            list: report to send to controller
+        返回:
+            list: 要发送到控制器的报告
         """
         outReport = (
             [0] * self.output_report_length
         )  # create empty list with range of output report
  
         if self.conType == ConnectionType.USB:
-            # packet type
+            # 数据包类型
             outReport[0] = self.OUTPUT_REPORT_USB
 
-            # flags determing what changes this packet will perform
-            # 0x01 set the main motors (also requires flag 0x02); setting this by itself will allow rumble to gracefully terminate and then re-enable audio haptics, whereas not setting it will kill the rumble instantly and re-enable audio haptics.
-            # 0x02 set the main motors (also requires flag 0x01; without bit 0x01 motors are allowed to time out without re-enabling audio haptics)
-            # 0x04 set the right trigger motor
-            # 0x08 set the left trigger motor
-            # 0x10 modification of audio volume
-            # 0x20 toggling of internal speaker while headset is connected
-            # 0x40 modification of microphone volume
+            # 标志确定此数据包将执行哪些更改
+            # 0x01 设置主电机（还需要标志 0x02）；单独设置此标志将允许振动优雅地终止然后重新启用音频触觉，而不设置它将立即停止振动并重新启用音频触觉。
+            # 0x02 设置主电机（还需要标志 0x01；没有位 0x01 电机允许超时而不重新启用音频触觉）
+            # 0x04 设置右侧扳机电机
+            # 0x08 设置左侧扳机电机
+            # 0x10 修改音频音量
+            # 0x20 在耳机连接时切换内部扬声器
+            # 0x40 修改麦克风音量
             outReport[1] = 0xFF  # [1]
 
-            # further flags determining what changes this packet will perform
-            # 0x01 toggling microphone LED
-            # 0x02 toggling audio/mic mute
-            # 0x04 toggling LED strips on the sides of the touchpad
-            # 0x08 will actively turn all LEDs off? Convenience flag? (if so, third parties might not support it properly)
-            # 0x10 toggling white player indicator LEDs below touchpad
+            # 进一步标志确定此数据包将执行哪些更改
+            # 0x01 切换麦克风 LED
+            # 0x02 切换音频/麦克风静音
+            # 0x04 切换触摸板侧面的 LED 条
+            # 0x08 将主动关闭所有 LED？便利标志？（如果是，第三方可能不支持它）
+            # 0x10 切换触摸板下方的白色玩家指示灯 LED
             # 0x20 ???
-            # 0x40 adjustment of overall motor/effect power (index 37 - read note on triggers)
+            # 0x40 调整整体电机/效果功率（索引 37 - 阅读扳机上的注释）
             # 0x80 ???
             outReport[2] = 0x1 | 0x2 | 0x4 | 0x10 | 0x40  # [2]
 
-            outReport[3] = self.rightMotor  # right low freq motor 0-255 # [3]
-            outReport[4] = self.leftMotor  # left low freq motor 0-255 # [4]
+            outReport[3] = self.rightMotor  # 右侧低频电机 0-255 # [3]
+            outReport[4] = self.leftMotor  # 左侧低频电机 0-255 # [4]
 
-            # outReport[5] - outReport[8] audio related
+            # outReport[5] - outReport[8] 音频相关
 
-            # set Micrphone LED, setting doesnt effect microphone settings
+            # 设置麦克风 LED，设置不影响麦克风设置
             outReport[9] = self.audio.microphone_led  # [9]
 
             outReport[10] = 0x10 if self.audio.microphone_mute is True else 0x00
 
-            # add right trigger mode + parameters to packet
+            # 将右侧扳机模式 + 参数添加到数据包
             outReport[11] = self.triggerR.mode.value
             outReport[12] = self.triggerR.forces[0]
             outReport[13] = self.triggerR.forces[1]
@@ -575,43 +580,43 @@ class pydualsense:  # noqa: N801
             outReport[47] = self.light.TouchpadColor[2]
 
         elif self.conType == ConnectionType.BT:
-            # packet type
-            outReport[0] = self.OUTPUT_REPORT_BT  # bt type
+            # 数据包类型
+            outReport[0] = self.OUTPUT_REPORT_BT  # bt 类型
 
             outReport[1] = 0x02
 
-            # flags determing what changes this packet will perform
-            # 0x01 set the main motors (also requires flag 0x02); setting this by itself will allow rumble to gracefully terminate and then re-enable audio haptics, whereas not setting it will kill the rumble instantly and re-enable audio haptics.
-            # 0x02 set the main motors (also requires flag 0x01; without bit 0x01 motors are allowed to time out without re-enabling audio haptics)
-            # 0x04 set the right trigger motor
-            # 0x08 set the left trigger motor
-            # 0x10 modification of audio volume
-            # 0x20 toggling of internal speaker while headset is connected
-            # 0x40 modification of microphone volume
+            # 标志确定此数据包将执行哪些更改
+            # 0x01 设置主电机（还需要标志 0x02）；单独设置此标志将允许振动优雅地终止然后重新启用音频触觉，而不设置它将立即停止振动并重新启用音频触觉。
+            # 0x02 设置主电机（还需要标志 0x01；没有位 0x01 电机允许超时而不重新启用音频触觉）
+            # 0x04 设置右侧扳机电机
+            # 0x08 设置左侧扳机电机
+            # 0x10 修改音频音量
+            # 0x20 在耳机连接时切换内部扬声器
+            # 0x40 修改麦克风音量
             outReport[2] = 0xFF  # [1]
 
-            # further flags determining what changes this packet will perform
-            # 0x01 toggling microphone LED
-            # 0x02 toggling audio/mic mute
-            # 0x04 toggling LED strips on the sides of the touchpad
-            # 0x08 will actively turn all LEDs off? Convenience flag? (if so, third parties might not support it properly)
-            # 0x10 toggling white player indicator LEDs below touchpad
+            # 进一步标志确定此数据包将执行哪些更改
+            # 0x01 切换麦克风 LED
+            # 0x02 切换音频/麦克风静音
+            # 0x04 切换触摸板侧面的 LED 条
+            # 0x08 将主动关闭所有 LED？便利标志？（如果是，第三方可能不支持它）
+            # 0x10 切换触摸板下方的白色玩家指示灯 LED
             # 0x20 ???
-            # 0x40 adjustment of overall motor/effect power (index 37 - read note on triggers)
+            # 0x40 调整整体电机/效果功率（索引 37 - 阅读扳机上的注释）
             # 0x80 ???
             outReport[3] = 0x1 | 0x2 | 0x4 | 0x10 | 0x40  # [2]
 
-            outReport[4] = self.rightMotor  # right low freq motor 0-255 # [3]
-            outReport[5] = self.leftMotor  # left low freq motor 0-255 # [4]
+            outReport[4] = self.rightMotor  # 右侧低频电机 0-255 # [3]
+            outReport[5] = self.leftMotor  # 左侧低频电机 0-255 # [4]
 
-            # outReport[5] - outReport[8] audio related
+            # outReport[5] - outReport[8] 音频相关
 
-            # set Micrphone LED, setting doesnt effect microphone settings
+            # 设置麦克风 LED，设置不影响麦克风设置
             outReport[10] = self.audio.microphone_led  # [9]
 
             outReport[11] = 0x10 if self.audio.microphone_mute is True else 0x00
 
-            # add right trigger mode + parameters to packet
+            # 将右侧扳机模式 + 参数添加到数据包
             outReport[12] = self.triggerR.mode.value
             outReport[13] = self.triggerR.forces[0]
             outReport[14] = self.triggerR.forces[1]
@@ -653,12 +658,12 @@ class pydualsense:  # noqa: N801
 
 class DSTouchpad:
     """
-    Dualsense Touchpad class. Contains X and Y position of touch and if the touch isActive
+    Dualsense 触摸板类。包含触摸的 X 和 Y 位置以及触摸是否活跃
     """
 
     def __init__(self) -> None:
         """
-        Class represents the Touchpad of the controller
+        类代表控制器的触摸板
         """
         self.isActive = False
         self.ID = 0
@@ -669,7 +674,7 @@ class DSTouchpad:
 class DSState:
     def __init__(self) -> None:
         """
-        All dualsense states (inputs) that can be read. Second method to check if a input is pressed.
+        可以读取的所有 dualsense 状态（输入）。第二种方法检查输入是否被按下。
         """
         self.square, self.triangle, self.circle, self.cross = False, False, False, False
         self.DpadUp, self.DpadDown, self.DpadLeft, self.DpadRight = (
@@ -706,15 +711,15 @@ class DSState:
         self.trackPadTouch0, self.trackPadTouch1 = DSTouchpad(), DSTouchpad()
         self.gyro = DSGyro()
         self.accelerometer = DSAccelerometer()
-        self.L2_value = 0 # trigger analog value from 0 to 255
-        self.R2_value = 0 # trigger analog value from 0 to 255
+        self.L2_value = 0 # 扳机模拟值从 0 到 255
+        self.R2_value = 0 # 扳机模拟值从 0 到 255
 
     def setDPadState(self, dpad_state: int) -> None:
         """
-        Sets the dpad state variables according to the integers that was read from the controller
+        根据从控制器读取的整数设置 dpad 状态变量
 
-        Args:
-            dpad_state (int): integer number representing the dpad state
+        参数:
+            dpad_state (int): 表示 dpad 状态的整数
         """
         if dpad_state == 0:
             self.DpadUp = True
@@ -765,11 +770,11 @@ class DSState:
 
 class DSLight:
     """
-    Represents all features of lights on the controller
+    代表控制器上所有灯光功能
     """
 
     def __init__(self) -> None:
-        self.brightness: Brightness = Brightness.low  # sets
+        self.brightness: Brightness = Brightness.low  # 设置
         self.playerNumber: PlayerID = PlayerID.PLAYER_1
         self.ledOption: LedOptions = LedOptions.Both
         self.pulseOptions: PulseOptions = PulseOptions.Off
@@ -777,196 +782,196 @@ class DSLight:
 
     def setLEDOption(self, option: LedOptions) -> None:
         """
-        Sets the LED Option
+        设置 LED 选项
 
-        Args:
-            option (LedOptions): Led option
+        参数:
+            option (LedOptions): LED 选项
 
-        Raises:
-            TypeError: LedOption is false type
+        引发:
+            TypeError: LedOption 类型错误
         """
         if not isinstance(option, LedOptions):
-            raise TypeError("Need LEDOption type")
+            raise TypeError("需要 LEDOption 类型")
         self.ledOption = option
 
     def setPulseOption(self, option: PulseOptions) -> None:
         """
-        Sets the Pulse Option of the LEDs
+        设置 LED 的脉冲选项
 
-        Args:
-            option (PulseOptions): pulse option of the LEDs
+        参数:
+            option (PulseOptions): LED 的脉冲选项
 
-        Raises:
-            TypeError: Pulse option is false type
+        引发:
+            TypeError: 脉冲选项类型错误
         """
         if not isinstance(option, PulseOptions):
-            raise TypeError("Need PulseOption type")
+            raise TypeError("需要 PulseOption 类型")
         self.pulseOptions = option
 
     def setBrightness(self, brightness: Brightness) -> None:
         """
-        Defines the brightness of the Player LEDs
+        定义玩家 LED 的亮度
 
-        Args:
-            brightness (Brightness): brightness of LEDS
+        参数:
+            brightness (Brightness): LED 的亮度
 
-        Raises:
-            TypeError: brightness false type
+        引发:
+            TypeError: 亮度类型错误
         """
         if not isinstance(brightness, Brightness):
-            raise TypeError("Need Brightness type")
+            raise TypeError("需要 Brightness 类型")
         self.brightness = brightness
 
     def setPlayerID(self, player: PlayerID) -> None:
         """
-        Sets the PlayerID of the controller with the choosen LEDs.
-        The controller has 4 Player states
+        使用选择的 LED 设置控制器的 PlayerID。
+        控制器有 4 个玩家状态
 
-        Args:
-            player (PlayerID): chosen PlayerID for the Controller
+        参数:
+            player (PlayerID): 为控制器选择的 PlayerID
 
-        Raises:
+        引发:
             TypeError: [description]
         """
         if not isinstance(player, PlayerID):
-            raise TypeError("Need PlayerID type")
+            raise TypeError("需要 PlayerID 类型")
         self.playerNumber = player
 
     def setColorI(self, r: int, g: int, b: int) -> None:
         """
-        Sets the Color around the Touchpad of the controller
+        设置控制器触摸板周围的颜色
 
-        Args:
-            r (int): red channel
-            g (int): green channel
-            b (int): blue channel
+        参数:
+            r (int): 红色通道
+            g (int): 绿色通道
+            b (int): 蓝色通道
 
-        Raises:
-            TypeError: color channels have wrong type
-            Exception: color channels are out of bounds
+        引发:
+            TypeError: 颜色通道类型错误
+            Exception: 颜色通道超出范围
         """
         if not isinstance(r, int) or not isinstance(g, int) or not isinstance(b, int):
-            raise TypeError("Color parameter need to be int")
-        # check if color is out of bounds
+            raise TypeError("颜色参数需要是 int")
+        # 检查颜色是否超出范围
         if (r > 255 or g > 255 or b > 255) or (r < 0 or g < 0 or b < 0):
-            raise Exception("colors have values from 0 to 255 only")
+            raise Exception("颜色值仅从 0 到 255")
         self.TouchpadColor = (r, g, b)
 
     def setColorT(self, color: Tuple[int, int, int]) -> None:
         """
-        Sets the Color around the Touchpad as a tuple
+        将触摸板周围的颜色设置为元组
 
-        Args:
-            color (tuple): color as tuple
+        参数:
+            color (tuple): 颜色作为元组
 
-        Raises:
-            TypeError: color has wrong type
-            Exception: color channels are out of bounds
+        引发:
+            TypeError: 颜色类型错误
+            Exception: 颜色通道超出范围
         """
         if not isinstance(color, tuple):
-            raise TypeError("Color type is tuple")
-        # unpack for out of bounds check
+            raise TypeError("颜色类型是 tuple")
+        # 解包以检查超出范围
         r, g, b = map(int, color)
-        # check if color is out of bounds
+        # 检查颜色是否超出范围
         if (r > 255 or g > 255 or b > 255) or (r < 0 or g < 0 or b < 0):
-            raise Exception("colors have values from 0 to 255 only")
+            raise Exception("颜色值仅从 0 到 255")
         self.TouchpadColor = (r, g, b)
 
 
 class DSAudio:
     def __init__(self) -> None:
         """
-        initialize the limited Audio features of the controller
+        初始化控制器的有限音频功能
         """
         self.microphone_mute = 0
         self.microphone_led = 0
 
     def setMicrophoneLED(self, value: bool) -> None:
         """
-        Activates or disables the microphone led.
-        This doesnt change the mute/unmutes the microphone itself.
+        激活或禁用麦克风 LED。
+        这不会改变麦克风本身的静音/取消静音。
 
-        Args:
-            value (bool): On or off microphone LED
+        参数:
+            value (bool): 开启或关闭麦克风 LED
 
-        Raises:
-            Exception: false state for the led
+        引发:
+            Exception: LED 的错误状态
         """
         if not isinstance(value, bool):
-            raise TypeError("MicrophoneLED can only be a bool")
+            raise TypeError("MicrophoneLED 只能是 bool")
         self.microphone_led = value
 
     def setMicrophoneState(self, state: bool) -> None:
         """
-        Set the microphone state and also sets the microphone led accordingle
+        设置麦克风状态并相应设置麦克风 LED
 
-        Args:
-            state (bool): desired state of the microphone
+        参数:
+            state (bool): 麦克风的期望状态
 
-        Raises:
-            TypeError: state was not a bool
+        引发:
+            TypeError: state 不是 bool
         """
 
         if not isinstance(state, bool):
-            raise TypeError("state needs to be bool")
+            raise TypeError("state 需要是 bool")
 
-        self.setMicrophoneLED(state)  # set led accordingly
+        self.setMicrophoneLED(state)  # 相应设置 LED
         self.microphone_mute = state
 
 
 class DSTrigger:
     """
-    Dualsense trigger class. Allowes for multiple :class:`TriggerModes <pydualsense.enums.TriggerModes>` and multiple forces
+    Dualsense 扳机类。允许多个 :class:`TriggerModes <pydualsense.enums.TriggerModes>` 和多个力
 
-    # TODO: make this interface more userfriendly so a developer knows what he is doing
+    # TODO: 使此接口更用户友好，以便开发者知道他在做什么
     """
 
     def __init__(self) -> None:
-        # trigger modes
+        # 扳机模式
         self.mode: TriggerModes = TriggerModes.Off
 
-        # force parameters for the triggers
+        # 扳机的力参数
         self.forces = [0 for i in range(7)]
 
     def setForce(self, forceID: int = 0, force: int = 0) -> None:
         """
-        Sets the forces of the choosen force parameter
+        设置选择的力参数的力
 
-        Args:
-            forceID (int, optional): force parameter. Defaults to 0.
-            force (int, optional): applied force to the parameter. Defaults to 0.
+        参数:
+            forceID (int, optional): 力参数。默认为 0。
+            force (int, optional): 应用于参数的力。默认为 0。
 
-        Raises:
-            TypeError: wrong type of forceID or force
-            Exception: choosen a false force parameter
+        引发:
+            TypeError: forceID 或 force 类型错误
+            Exception: 选择了错误的力参数
         """
         if not isinstance(forceID, int) or not isinstance(force, int):
-            raise TypeError("forceID and force needs to be type int")
+            raise TypeError("forceID 和 force 需要是 int 类型")
 
         if forceID > 6 or forceID < 0:
-            raise Exception("only 7 parameters available")
+            raise Exception("只有 7 个参数可用")
 
         self.forces[forceID] = force
 
     def setMode(self, mode: TriggerModes) -> None:
         """
-        Set the Mode for the Trigger
+        设置扳机的模式
 
-        Args:
-            mode (TriggerModes): Trigger mode
+        参数:
+            mode (TriggerModes): 扳机模式
 
-        Raises:
-            TypeError: false Trigger mode type
+        引发:
+            TypeError: 错误的扳机模式类型
         """
         if not isinstance(mode, TriggerModes):
-            raise TypeError("Trigger mode parameter needs to be of type `TriggerModes`")
+            raise TypeError("扳机模式参数需要是 `TriggerModes` 类型")
 
         self.mode = mode
 
 
 class DSGyro:
     """
-    Class representing the Gyro2 of the controller
+    代表控制器陀螺仪的类
     """
 
     def __init__(self) -> None:
@@ -977,7 +982,7 @@ class DSGyro:
 
 class DSAccelerometer:
     """
-    Class representing the Accelerometer of the controller
+    代表控制器加速度计的类
     """
 
     def __init__(self) -> None:
@@ -988,7 +993,7 @@ class DSAccelerometer:
 
 class DSBattery:
     """
-    Class representing the Battery of the controller
+    代表控制器电池的类
     """
 
     def __init__(self) -> None:

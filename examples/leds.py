@@ -1,18 +1,19 @@
-from pydualsense import pydualsense
-from pydualsense.enums import PlayerID
 import time
 
-# get dualsense instance
+from pydualsense.enums import PlayerID
+from pydualsense.pydualsense import pydualsense
+
+# 获取 dualsense 实例
 dualsense = pydualsense()
 dualsense.init()
-# set color around touchpad to red
+# 将触控板周围颜色设置为红色
 dualsense.light.setColorI(255, 0, 0)
-# mute microphone
+# 静音麦克风
 dualsense.audio.setMicrophoneState(True)
-# set all player 1 indicator on
+# 设置玩家 1 指示灯开启
 dualsense.light.setPlayerID(PlayerID.PLAYER_1)
-# sleep a little to see the result on the controller
-# this is not needed in normal usage
+# 稍作等待以查看控制器上的结果
+# 这在正常使用中不是必需的
 time.sleep(2)
-# terminate the thread for message and close the device
+# 终止消息线程并关闭设备
 dualsense.close()

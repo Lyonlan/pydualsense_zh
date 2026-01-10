@@ -1,10 +1,15 @@
-import winreg
+"""
+HidGuardian 状态检查辅助
+
+用于在 Windows 上检测 HidGuardian 是否隐藏了 DualSense 设备，从而影响连接。
+"""
 import sys
+import winreg
 
 
 def check_hide() -> bool:
     """
-    check if hidguardian is used and controller is hidden
+    检查是否使用了 hidguardian 且手柄被隐藏
     """
     if sys.platform.startswith("win32"):
         try:

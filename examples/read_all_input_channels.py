@@ -1,14 +1,19 @@
 import curses
 import time
-from pydualsense import *
+from typing import Any
+
+from pydualsense.pydualsense import pydualsense
 
 
-def print_states(stdscr):
+def print_states(stdscr: Any) -> None:
     curses.curs_set(0)
     curses.use_default_colors()
     stdscr.nodelay(1)
     while True:
         stdscr.erase()
+        if dualsense.states is None:
+            time.sleep(0.1)
+            continue
         pretty_states = [f"{state:03}" for state in dualsense.states]
 
         stdscr.addstr(f"epoch: {time.time():.2f}\n")

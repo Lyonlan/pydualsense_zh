@@ -1,3 +1,8 @@
+"""
+DualSense 报文校验值计算
+
+本模块实现控制器输出报文的校验计算，用于保证数据完整性。
+"""
 import array
 from typing import List
 
@@ -41,6 +46,15 @@ hashTable = array.array('I', [
 
 
 def compute(buffer: List[int]) -> int:
+    """
+    计算给定缓冲区的校验值
+
+    参数:
+        buffer (List[int]): 报文的原始字节数组（长度应为 74）
+
+    返回:
+        int: 计算得到的 32 位校验值
+    """
     result: int = 0xEADA2D49
 
     for i in range(74):
