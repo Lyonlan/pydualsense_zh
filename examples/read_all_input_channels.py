@@ -50,8 +50,7 @@ dualsense = pydualsense()
 dualsense.init()
 
 while dualsense.states is None:
-    print("Waiting until connection is established...")
-    print(f"epoch: {time.time():.0f}")
+    print(f"Waiting until connection is established... connected={dualsense.connected} last_input_len={dualsense.last_input_len}")
     time.sleep(0.5)
 
 

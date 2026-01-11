@@ -13,11 +13,11 @@ if platform.startswith("win32") and sys.version_info >= (3, 8):
 
 
 import threading
+import time
 from copy import deepcopy
-from typing import List, Tuple
+from typing import Any, List, Optional, Tuple
 
-import hidapi  # type: ignore[import]
-
+# 后端在运行时动态选择与加载
 from .checksum import compute
 from .enums import (
     BatteryState,
@@ -40,12 +40,13 @@ class pydualsense:  # noqa: N801
     OUTPUT_REPORT_USB = 0x02
     OUTPUT_REPORT_BT = 0x31
 
-    def __init__(self, verbose: bool = False) -> None:
+    def __init__(self, verbose: bool = False, backend: Optional[str] = None) -> None:
         """
         初始化库但不连接到控制器。调用 :func:`init() <pydualsense.pydualsense.init>` 来连接到控制器
 
         参数:
             verbose (bool, optional): 显示详细输出 (输入和输出的调试打印)。默认为 False。
+            backend (str | None): 选择 HID 后端，仅支持 "hidapi"。默认使用 hidapi。
         """
 
         self.verbose = verbose
@@ -55,10 +56,99 @@ class pydualsense:  # noqa: N801
 
         self.leftMotor = 0
         self.rightMotor = 0
+        self.last_input_len = 0
+        self.backend_name = ""
+        self._hid: Any = None
 
         self.last_states: DSState = None # type: ignore[assignment]
 
         self.register_available_events()
+        self._init_backend(backend)
+        self.packet_log_enabled = False
+        self._packet_log_dir = ""
+        self._packet_in_fp = None
+        self._packet_out_fp = None
+
+    def enable_packet_logger(self, log_dir: str) -> None:
+        """
+        启用 HID 报文记录功能
+
+        参数:
+            log_dir: 日志目录（不存在将自动创建），会生成 input_*.log 与 output_*.log
+        说明:
+            - 每行格式: 时间戳(秒) 报文长度 十六进制串
+            - input_* 记录手柄输入报文；output_* 记录发送给手柄的报文
+        """
+        self.packet_log_enabled = True
+        self._packet_log_dir = log_dir
+        os.makedirs(log_dir, exist_ok=True)
+        ts = time.strftime("%Y%m%d_%H%M%S")
+        self._packet_in_fp = open(os.path.join(log_dir, f"input_{ts}.log"), "a")
+        self._packet_out_fp = open(os.path.join(log_dir, f"output_{ts}.log"), "a")
+
+    def disable_packet_logger(self) -> None:
+        """
+        关闭 HID 报文记录并安全关闭文件句柄
+        """
+        self.packet_log_enabled = False
+        try:
+            if self._packet_in_fp:
+                self._packet_in_fp.close()
+        except Exception:
+            pass
+        try:
+            if self._packet_out_fp:
+                self._packet_out_fp.close()
+        except Exception:
+            pass
+        self._packet_in_fp = None
+        self._packet_out_fp = None
+
+    def _log_input_packet(self, data: bytes) -> None:
+        """
+        写入一条输入报文到 input_*.log（时间戳/长度/十六进制）
+        """
+        if not self.packet_log_enabled or self._packet_in_fp is None:
+            return
+        try:
+            self._packet_in_fp.write(f"{time.time():.6f} {len(data)} {data.hex()}\n")
+            self._packet_in_fp.flush()
+        except Exception:
+            pass
+
+    def _log_output_packet(self, data: bytes) -> None:
+        """
+        写入一条输出报文到 output_*.log（时间戳/长度/十六进制）
+        """
+        if not self.packet_log_enabled or self._packet_out_fp is None:
+            return
+        try:
+            self._packet_out_fp.write(f"{time.time():.6f} {len(data)} {data.hex()}\n")
+            self._packet_out_fp.flush()
+        except Exception:
+            pass
+
+    def _init_backend(self, backend: Optional[str]) -> None:
+        """
+        初始化 HID 后端。优先按参数，其次按环境变量，最后按平台选择。
+        """
+        prefer = []
+        env_backend = os.getenv("PYDUALSENSE_BACKEND")
+        chosen = backend or (env_backend if env_backend in ("hidapi",) else None)
+        prefer = [chosen] if chosen is not None else ["hidapi"]
+
+        last_err = None
+        for name in prefer:
+            try:
+                if name == "hidapi":
+                    import hidapi as hidapi_mod  # type: ignore[import]
+                    self._hid = hidapi_mod
+                    self.backend_name = "hidapi"
+                    return
+            except Exception as e:
+                last_err = e
+                continue
+        raise RuntimeError(f"Failed to load HID backend ({prefer}). Last error: {last_err}")
 
     def register_available_events(self) -> None:
         """
@@ -124,7 +214,7 @@ class pydualsense:  # noqa: N801
         """
         初始化模块和设备状态。在结束时启动 sendReport 后台线程
         """
-        self.device, self.is_edge = self.__find_device() # type: Tuple[hidapi.Device, bool]
+        self.device, self.is_edge = self.__find_device()
         self.light = DSLight()  # control led light of ds
         self.audio = DSAudio()  # ds audio setting
         self.triggerL = DSTrigger()  # left trigger
@@ -159,8 +249,13 @@ class pydualsense:  # noqa: N801
             ConnectionType: 检测到的控制器连接类型。
         """
 
-        dummy_report = self.device.read(100)
-        input_report_length = len(dummy_report)
+        input_report_length = 0
+        for _ in range(10):
+            dummy_report = self.device.read(100, timeout_ms=50)
+            input_report_length = len(dummy_report) if dummy_report is not None else 0
+            if input_report_length != 0:
+                break
+            time.sleep(0.05)
 
         if input_report_length == 64:
             self.input_report_length = 64
@@ -171,7 +266,9 @@ class pydualsense:  # noqa: N801
             self.output_report_length = 78
             return ConnectionType.BT
 
-        return ConnectionType.ERROR
+        self.input_report_length = 64
+        self.output_report_length = 64
+        return ConnectionType.USB
 
     def close(self) -> None:
         """
@@ -183,7 +280,7 @@ class pydualsense:  # noqa: N801
         self.report_thread.join()
         self.device.close()
 
-    def __find_device(self) -> Tuple[hidapi.Device, bool]:
+    def __find_device(self) -> Tuple[Any, bool]:
         """
         查找 HID dualsense 设备并打开它
 
@@ -204,19 +301,126 @@ class pydualsense:  # noqa: N801
                 raise Exception(
                     "HIDGuardian detected. Delete the controller from HIDGuardian and restart PC to connect to controller"
                 )
-        detected_device: hidapi.Device = None
-        devices = hidapi.enumerate(vendor_id=0x054C)
-        for device in devices:
-            if device.vendor_id == 0x054C and device.product_id in (0x0CE6, 0x0DF2):
-                detected_device = device
+        detected_info: Any = None
+        try:
+            devices = self._hid.enumerate()
+        except TypeError:
+            try:
+                devices = self._hid.enumerate(0x054C, 0)
+            except Exception:
+                devices = []
+        # 收集候选设备（优先 GamePad 接口）
+        candidates: List[Any] = []
+        gamepad_candidates: List[Any] = []
+        for d in devices:
+            vendor = getattr(d, "vendor_id", None)
+            product = getattr(d, "product_id", None)
+            if vendor is None or product is None:
+                if isinstance(d, dict):
+                    vendor = d.get("vendor_id")
+                    product = d.get("product_id")
+            if vendor == 0x054C and product in (0x0CE6, 0x0DF2):
+                candidates.append(d)
+                usage_page = getattr(d, "usage_page", None)
+                usage = getattr(d, "usage", None)
+                if usage_page == 0x01 and usage == 0x05:
+                    gamepad_candidates.append(d)
+        ordered = gamepad_candidates + [c for c in candidates if c not in gamepad_candidates]
 
-        if detected_device is None:
+        if not ordered:
             raise Exception("No device detected")
 
-        dual_sense = hidapi.Device(
-            vendor_id=detected_device.vendor_id, product_id=detected_device.product_id
-        )
-        return dual_sense, detected_device.product_id == 0x0DF2
+        # 迭代尝试打开，回退顺序：info -> vid/pid -> path
+        last_err: Optional[Exception] = None
+        device = None
+        for info in ordered:
+            vendor = getattr(info, "vendor_id", None)
+            product = getattr(info, "product_id", None)
+            if vendor is None or product is None:
+                vendor = info.get("vendor_id")
+                product = info.get("product_id")
+            path = getattr(info, "path", None)
+            if path is None and isinstance(info, dict):
+                path = info.get("path")
+            for _ in range(5):
+                try:
+                    device = self._hid.Device(info=info)
+                    detected_info = info
+                    # 验证是否为期望的输入接口
+                    ok = False
+                    for _ in range(5):
+                        sample = device.read(100, timeout_ms=100)
+                        slen = len(sample) if sample is not None else 0
+                        if slen in (64, 78):
+                            ok = True
+                            break
+                        time.sleep(0.05)
+                    if ok:
+                        break
+                    else:
+                        try:
+                            device.close()
+                        except Exception:
+                            pass
+                        device = None
+                except Exception as e1:
+                    last_err = e1
+                try:
+                    serial = getattr(info, "serial_number", None)
+                    device = self._hid.Device(vendor_id=vendor, product_id=product, serial_number=serial)
+                    detected_info = info
+                    ok = False
+                    for _ in range(5):
+                        sample = device.read(100, timeout_ms=100)
+                        slen = len(sample) if sample is not None else 0
+                        if slen in (64, 78):
+                            ok = True
+                            break
+                        time.sleep(0.05)
+                    if ok:
+                        break
+                    else:
+                        try:
+                            device.close()
+                        except Exception:
+                            pass
+                        device = None
+                except Exception as e2:
+                    last_err = e2
+                try:
+                    if path:
+                        path_bytes = path if isinstance(path, (bytes, bytearray)) else str(path).encode()
+                        device = self._hid.Device(path=path_bytes)
+                        detected_info = info
+                        ok = False
+                        for _ in range(5):
+                            sample = device.read(100, timeout_ms=100)
+                            slen = len(sample) if sample is not None else 0
+                            if slen in (64, 78):
+                                ok = True
+                                break
+                            time.sleep(0.05)
+                        if ok:
+                            break
+                        else:
+                            try:
+                                device.close()
+                            except Exception:
+                                pass
+                            device = None
+                except Exception as e3:
+                    last_err = e3
+                time.sleep(0.2)
+            if device is not None:
+                break
+
+        if device is None:
+            if last_err is None:
+                last_err = RuntimeError("No valid HID input interface (no 64/78 byte reports)")
+            raise Exception(f"Failed to open DualSense HID device: {last_err}")
+
+        is_edge = bool(product == 0x0DF2)
+        return device, is_edge
 
     def setLeftMotor(self, intensity: int) -> None:
         """
@@ -259,9 +463,17 @@ class pydualsense:  # noqa: N801
         while self.ds_thread:
             try:
                 # read data from the input report of the controller
-                inReport = self.device.read(self.input_report_length)
+                inReport = self.device.read(self.input_report_length, timeout_ms=50)
+                if inReport is None:
+                    self.last_input_len = 0
+                    outReport = self.prepareReport()
+                    self._log_output_packet(bytes(outReport))
+                    self.writeReport(outReport)
+                    continue
+                self.last_input_len = len(inReport)
                 if self.verbose:
                     logger.debug(inReport)
+                self._log_input_packet(bytes(inReport))
                 # decrypt the packet and bind the inputs
                 self.readInput(inReport)
 
@@ -269,6 +481,7 @@ class pydualsense:  # noqa: N801
                 outReport = self.prepareReport()
 
                 # write the report to the device
+                self._log_output_packet(bytes(outReport))
                 self.writeReport(outReport)
             except OSError:
                 self.connected = False
@@ -285,6 +498,23 @@ class pydualsense:  # noqa: N801
         参数:
             inReport (bytearray): 读取包含整个控制器状态的字节数组
         """
+
+        if not inReport:
+            return
+        # 根据实际输入报文长度动态修正连接类型
+        if len(inReport) == 64 and self.conType != ConnectionType.USB:
+            self.conType = ConnectionType.USB
+            self.input_report_length = 64
+            self.output_report_length = 64
+        elif len(inReport) == 78 and self.conType != ConnectionType.BT:
+            self.conType = ConnectionType.BT
+            self.input_report_length = 78
+            self.output_report_length = 78
+
+        if self.conType == ConnectionType.USB and len(inReport) < 64:
+            return
+        if self.conType == ConnectionType.BT and len(inReport) < 78:
+            return
 
         # the reports for BT and USB are structured the same,
         # but there is one more byte at the start of the bluetooth report.
@@ -506,6 +736,20 @@ class pydualsense:  # noqa: N801
         """
         self.device.write(bytes(outReport))
 
+    def forceConnectionType(self, con: ConnectionType) -> None:
+        """
+        强制设置连接类型（USB/BT），并调整报文长度
+        """
+        if con == ConnectionType.BT:
+            self.conType = ConnectionType.BT
+            self.input_report_length = 78
+            self.output_report_length = 78
+        elif con == ConnectionType.USB:
+            self.conType = ConnectionType.USB
+            self.input_report_length = 64
+            self.output_report_length = 64
+        else:
+            self.conType = ConnectionType.ERROR
     def prepareReport(self) -> List[int]:
         """
         准备要发送到控制器的输出
