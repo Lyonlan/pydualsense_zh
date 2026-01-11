@@ -1,25 +1,30 @@
+"""
+事件系统实现
+
+提供 C# 风格的事件订阅/取消订阅机制，用于在输入状态变化时触发回调。
+"""
 from typing import Any, Callable, List
 
 
 # mypy: disable_error_code="type-arg"
 class Event:
     """
-    Base class for the event driven system
+    事件驱动系统的基类
     """
 
     def __init__(self, available=True) -> None:
         """
-        initialise event system
+        初始化事件系统
         """
         self._event_handler: List[Callable] = []
         self.available = available
 
     def subscribe(self, fn: Callable) -> Any:
         """
-        add a event subscription
+        添加事件订阅
 
         Args:
-            fn (function): _description_
+            fn (function): 回调函数
         """
         if not self.available:
             raise ValueError("Event unavailable")
@@ -28,10 +33,10 @@ class Event:
 
     def unsubscribe(self, fn: Callable) -> Any:
         """
-        delete event subscription fn
+        删除事件订阅 fn
 
         Args:
-            fn (function): _description_
+            fn (function): 回调函数
         """
         if not self.available:
             raise ValueError("Event unavailable")
@@ -40,10 +45,10 @@ class Event:
 
     def __iadd__(self, fn: Callable) -> Any:
         """
-        add event subscription fn
+        添加事件订阅 fn
 
         Args:
-            fn (function): _description_
+            fn (function): 回调函数
         """
         if not self.available:
             raise ValueError("Event unavailable")
@@ -52,10 +57,10 @@ class Event:
 
     def __isub__(self, fn: Callable) -> Any:
         """
-        delete event subscription fn
+        删除事件订阅 fn
 
         Args:
-            fn (function): _description_
+            fn (function): 回调函数
         """
         if not self.available:
             raise ValueError("Event unavailable")
@@ -64,7 +69,7 @@ class Event:
 
     def __call__(self, *args, **kwargs) -> None: # type: ignore[arg-type]
         """
-        calls all event subscription functions
+        调用所有事件订阅函数
         """
         if not self.available:
             raise ValueError("Event unavailable")

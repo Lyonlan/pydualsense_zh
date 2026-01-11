@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:
@@ -22,13 +23,15 @@ sys.path.append(str(Path(__file__).parents[2]))
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.napoleon', 'sphinx.ext.coverage', 'sphinx.ext.todo']
 
 templates_path = ['templates']
-exclude_patterns = []
+exclude_patterns: list[str] = []
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = 'furo'
-html_static_path = ['static']
+html_static_path: list[str] = ['static']
+html_js_files: list[str] = []
+html_css_files: list[str] = []
 
 autodoc_default_options = {
     'members': True,
@@ -40,4 +43,4 @@ autodoc_default_options = {
 
 autoclass_content = 'both'
 todo_include_todos = True
-
+autodoc_mock_imports = ['hidapi', 'winreg']

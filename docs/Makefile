@@ -7,6 +7,7 @@ SPHINXOPTS    ?=
 SPHINXBUILD   ?= sphinx-build
 SOURCEDIR     = source
 BUILDDIR      = build
+ZHBUILDDIR    = build/zh
 
 # Put it first so that "make" without argument is like "make help".
 help:
@@ -21,3 +22,10 @@ help:
 
 generate_doc:
 	sphinx-apidoc ../pydualsense -f -o ./source  --ext-autodoc --ext-coverage --ext-todo
+
+# Build Chinese-only site (root_doc=zh/index) into build/zh
+html-zh:
+	@$(SPHINXBUILD) -M html "$(SOURCEDIR)" "$(ZHBUILDDIR)" -D root_doc=zh/index $(SPHINXOPTS) $(O)
+
+clean-zh:
+	@$(SPHINXBUILD) -M clean "$(SOURCEDIR)" "$(ZHBUILDDIR)" -D root_doc=zh/index $(SPHINXOPTS) $(O)

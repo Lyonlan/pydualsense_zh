@@ -1,3 +1,12 @@
-cffi==1.15.1 ; python_version >= "3.7" and python_version < "4.0"
-hidapi-usb==0.3.1 ; python_version >= "3.7" and python_version < "4.0"
-pycparser==2.21 ; python_version >= "3.7" and python_version < "4.0"
+# 核心运行依赖（与 HIDAPI 通信）
+cffi==1.15.1 ; python_version >= "3.7" and python_version < "4.0"  # CFFI，hidapi-usb 的底层依赖
+hidapi-usb==0.3.1 ; python_version >= "3.7" and python_version < "4.0"  # HIDAPI 的 Python 封装（USB 后端）
+pycparser==2.21 ; python_version >= "3.7" and python_version < "4.0"  # CFFI 所需的 C 语法解析器
+
+# 开发与测试（本地类型检查/单元测试）
+mypy==1.2.0 ; python_version >= "3.7" and python_version < "4.0"  # 类型检查工具
+pytest==7.3.1 ; python_version >= "3.7" and python_version < "4.0"  # 单元测试框架
+
+# 文档构建（本地生成 Sphinx 文档）
+sphinx>=7.3.7 ; python_version >= "3.9" and python_version < "4.0"  # 文档生成器
+furo ; python_version >= "3.9" and python_version < "4.0"  # Sphinx 主题（深/浅色）

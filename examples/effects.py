@@ -1,6 +1,7 @@
-from pydualsense import *
+from pydualsense.enums import TriggerModes
+from pydualsense.pydualsense import pydualsense
 
-# get dualsense instance
+# 获取 dualsense 实例
 dualsense = pydualsense()
 dualsense.init()
 
@@ -16,8 +17,8 @@ dualsense.triggerR.setForce(0, 200)
 dualsense.triggerR.setForce(1, 255)
 dualsense.triggerR.setForce(2, 175)
 
-# loop until r1 is pressed to feel effect
+# 循环直到 R1 被按下以感受效果
 while not dualsense.state.R1:
     ...
-# terminate the thread for message and close the device
+# 终止消息线程并关闭设备
 dualsense.close()
